@@ -1,16 +1,7 @@
 // clean al Buffers before reallocation
 Buffer.freeAll;
 // Use With Junxion Software and the file x3dLoopControl.j4xml
-// put the subfolder name you want
-~changeFolder.value("industr", "wav");
-~changeFolder.value("20141026", "aiff");
-~changeFolder.value("20150325", "aiff");
-// restart interpreter and quit server
-// thisProcess.recompile;
-// boot the local server
-// s.boot;
 // first of all load all needed Bus and variables [[[ONLY ONCE]]]
-(
 ///////// Global Variables
 ~startup = true; // turn to false after startup
 ~currentFolder = "date +\"%Y%m%d\"".unixCmdGetStdOutLines;
@@ -18,6 +9,7 @@ Buffer.freeAll;
 ~recFile = ~currentFolder++"x3dL_1.aiff";
 ~stdHeader = ~currentFolder++"x3dL_";
 ~ext = "aiff";
+~timescale = 1;
 // check current folder and create a new one for each day session
 if ( File.exists(~currentFolder.standardizePath) )
 { ("Folder for sample record: "++~currentFolder).postln }
@@ -91,6 +83,16 @@ SynthDef(\play, {| outBus = 0, bufnum, start = 0, loop = 0, panpot = 0 |
 	out = Pan2.ar(source, panpot);
     Out.ar(outBus, out)
 }).send(s);
+// stereo looper
+SynthDef(\playLoop, {| outBus = 0, bufnum, start = 0, loop = 0, panpot = 0 |
+	var source, out, env, envdur;
+	envdur = 0.5;
+	env = Env.asr(attackTime:0.02,sustainLevel:1,releaseTime:envdur,curve:\lin);
+	source = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), 1, start, loop, doneAction:2) *
+	EnvGen.ar(env);
+	out = Pan2.ar(source,panpot);
+    Out.ar(outBus, out)
+}).send(s);
 // 4 channels player
 SynthDef(\play4, {| outBus = 0, bufnum, start = 0, loop = 0, xpos = 0, ypos = 0 |
 	var source, out, env, envdur;
@@ -99,6 +101,16 @@ SynthDef(\play4, {| outBus = 0, bufnum, start = 0, loop = 0, xpos = 0, ypos = 0 
 	source = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), 1, start, loop, doneAction:2) *
 	EnvGen.ar(env);
 	//out = Pan2.ar(source, panpot);
+	out = Pan4.ar(source,xpos,ypos);
+    Out.ar(outBus, out)
+}).send(s);
+// 4ch looper
+SynthDef(\play4Loop, {| outBus = 0, bufnum, start = 0, loop = 0, xpos = 0, ypos = 0 |
+	var source, out, env, envdur;
+	envdur = start / 44100 - 0.02 - 0.5;
+	env = Env.asr(attackTime:0.02,sustainLevel:1,releaseTime:envdur,curve:\lin);
+	source = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), 1, start, loop, doneAction:2) *
+	EnvGen.ar(env);
 	out = Pan4.ar(source,xpos,ypos);
     Out.ar(outBus, out)
 }).send(s);
@@ -194,16 +206,12 @@ SynthDef.new(\granulaSample, {
 // Joystik controlled looper functions via OSC protocol
 OSCdef(\play, {|msg, time, addr, port|
 	if (msg[1]==1) {
-//		~play.value(~playBuff, ~startPos);
-		switch (~currentSampleNo)
-		{0} { ~play.value(~playBuff, ~startPos) }
-		{1} { ~play.value(~playBuff1, ~startPos) }
-		{2} { ~play.value(~playBuff2, ~startPos) }
-		{3} { ~play.value(~playBuff3, ~startPos) }
-		{4} { ~play.value(~playBuff4, ~startPos) }
-		{5} { ~play.value(~playBuff5, ~startPos) }
-		{6} { ~play.value(~playBuff6, ~startPos) };
-		// ("play current sample: "++~currentFile).postln
+		var time;
+		time = (~playBuff.numFrames - ~startPos) / 44100;
+		time = time * ~timescale;
+		//time.postln;
+		// ~play.value(~playBuff, ~startPos, time);
+		~play.value(~playBuff, ~startPos);
 	};
  },
 	'/jXcontrol/1'
@@ -230,19 +238,12 @@ OSCdef(\rec, {|msg, time, addr, port|
 // Sample start Pos control
 OSCdef(\startPos, {|msg, time, addr, port|
 	if (~sliderDelay==0){
-		switch (~currentSampleNo)
-		{0} { ~startPos = (msg[1] * ~playBuff.numFrames).floor.asInt }
-		{1} { ~startPos = (msg[1] * ~playBuff1.numFrames).floor.asInt }
-		{2} { ~startPos = (msg[1] * ~playBuff2.numFrames).floor.asInt }
-		{3} { ~startPos = (msg[1] * ~playBuff3.numFrames).floor.asInt }
-		{4} { ~startPos = (msg[1] * ~playBuff4.numFrames).floor.asInt }
-		{5} { ~startPos = (msg[1] * ~playBuff5.numFrames).floor.asInt }
-		{6} { ~startPos = (msg[1] * ~playBuff6.numFrames).floor.asInt };
+		~startPos = (msg[1] * ~playBuff.numFrames).floor.asInt;
 		// set the cursor of the viewer
 		~cursorBus.set(msg[1]);
 	}
-	},
-	'/jXcontrol/3'
+},
+'/jXcontrol/3'
 );
 // second control from /jXcontrol/3 to control position in Pan4
 OSCdef(\panpotY, {|msg, time, addr, port|
@@ -267,14 +268,7 @@ OSCdef(\deltime, {|msg, time, addr, port|
 	if (~sliderDelay==0){
 		~delTime.set(msg[1] * ~maxDelTime + 0.02);
 	} {
-		switch (~currentSampleNo)
-		{0} { ~startPos = (msg[1] * ~playBuff.numFrames).floor.asInt }
-		{1} { ~startPos = (msg[1] * ~playBuff1.numFrames).floor.asInt }
-		{2} { ~startPos = (msg[1] * ~playBuff2.numFrames).floor.asInt }
-		{3} { ~startPos = (msg[1] * ~playBuff3.numFrames).floor.asInt }
-		{4} { ~startPos = (msg[1] * ~playBuff4.numFrames).floor.asInt }
-		{5} { ~startPos = (msg[1] * ~playBuff5.numFrames).floor.asInt }
-		{6} { ~startPos = (msg[1] * ~playBuff6.numFrames).floor.asInt };
+		~startPos = (msg[1] * ~playBuff.numFrames).floor.asInt;
 		// set the cursor of the viewer
 		~cursorBus.set(msg[1]);
 	}
@@ -302,22 +296,7 @@ OSCdef(\inputSource, {|msg, time, addr, port|
 		~currentFile = "~/x3dLooper/x3dL_default.aiff";
 		("SAMPLE NOT RECORDED YET! Selected default file: "++~currentFile).postln;
 	};
-	switch (sampleNo)
-		{1} {~playBuff1 = Buffer.read(s, ~currentFile.standardizePath)}
-		{2} {~playBuff2 = Buffer.read(s, ~currentFile.standardizePath)}
-		{3} {~playBuff3 = Buffer.read(s, ~currentFile.standardizePath)}
-		{4} {~playBuff4 = Buffer.read(s, ~currentFile.standardizePath)}
-		{5} {~playBuff5 = Buffer.read(s, ~currentFile.standardizePath)}
-		{6} {~playBuff6 = Buffer.read(s, ~currentFile.standardizePath)};
-	/*
-		{1} {~playBuff1 = Buffer.read(s, ~currentFile.standardizePath).normalize }
-		{2} {~playBuff2 = Buffer.read(s, ~currentFile.standardizePath).normalize }
-		{3} {~playBuff3 = Buffer.read(s, ~currentFile.standardizePath).normalize }
-		{4} {~playBuff4 = Buffer.read(s, ~currentFile.standardizePath).normalize }
-		{5} {~playBuff5 = Buffer.read(s, ~currentFile.standardizePath).normalize }
-		{6} {~playBuff6 = Buffer.read(s, ~currentFile.standardizePath).normalize };
-	*/
-	~currentSampleNo = sampleNo;
+	~playBuff = Buffer.read(s, ~currentFile.standardizePath);
 	// show waveshape in lobotomixGUI file viewer
 	{ ~x3d_updateSoundFile.value(~currentFile.standardizePath) }.defer;
 };
@@ -390,6 +369,7 @@ OSCdef(\selsample6, {|msg, time, addr, port|
 				"FX 1 (pitch shifter) off!".postln;
 				~fxCount.postln;
 				~fx1 = 0;
+				{ ~x3d_pitchfx.value = 0 }.defer;
 			}
 		} {
 			if (~fx1 != 1) {
@@ -404,6 +384,7 @@ OSCdef(\selsample6, {|msg, time, addr, port|
 				"FX 1 (pitch shifter) on!".postln;
 				~fxCount.postln;
 				~fx1 = 1;
+				{ ~x3d_pitchfx.value = 1 }.defer;
 			}
 		};
 	};
@@ -428,6 +409,7 @@ OSCdef(\fx1, {|msg, time, addr, port|
 		"FX 2 (delay) off!".postln;
 		~fxCount.postln;
 		~fx2 = 0;
+		{ ~x3d_delayfx.value = 0 }.defer;
 	} {
 		~delay.map(\delaytime, ~delTime);
 		~fxCount = ~fxCount + 1;
@@ -442,6 +424,7 @@ OSCdef(\fx1, {|msg, time, addr, port|
 		"FX 2 (delay) on!".postln;
 		~fxCount.postln;
 		~fx2 = 1;
+		{ ~x3d_delayfx.value = 1 }.defer;
 	};
 };
 OSCdef(\fx2, {|msg, time, addr, port|
@@ -484,4 +467,3 @@ OSCdef(\fx4, {|msg, time, addr, port|
 ~ext = ext;
 ~ext.postln;
 };
-)

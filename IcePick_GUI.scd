@@ -386,6 +386,11 @@ s.meter;
 		{me.value==0} { ~loop = 0 }
 		{me.value==1} { ~loop = 1 }
 	};
+	// FX status buttons
+	~x3d_pitchfx = Button(~x3dView, Rect(390, 82, 90, 20))
+	.states_([["PitchShift", Color.black, Color.gray],["PitchShift", Color.black, Color.red]]);
+	~x3d_delayfx = Button(~x3dView, Rect(490, 82, 90, 20))
+	.states_([["Delay", Color.black, Color.gray],["Delay", Color.black, Color.red]]);
 	// recording viewer - show if recording and sample number
 	~x3d_rec_viewer = StaticText(~x3dView, Rect(400,160,170,30))
 	.string_(~x3d_rec_string)
