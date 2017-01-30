@@ -71,24 +71,18 @@ s.meter;
 	}
 });
 // populate the list with the default soundFile buffer array
-~lobo_CurrentSoundFileList = SoundFile.collectIntoBuffers(path: "/Volumes/ssdData/soundsAndSamples/Industrial-autoprodotti/*".standardizePath);
+~lobo_CurrentSoundFileList = SoundFile.collect(path: "/Volumes/ssdData/soundsAndSamples/Industrial-autoprodotti/*".standardizePath);
 ~setListViewContent.value(~lobo_CurrentSoundFileList);
-//// Read folder content (audio files) generate an Array of buffers
 ~lobo_Popup = PopUpMenu(~loboMain, Rect(280, 38, 150, 22))
-.items_(["Drum kit", "Tic Gaber", "900 voices", "Tzunami", "berlin", "Freesound"])
+.items_(["Industrial-autoprodotti", "tic_gaber", "900-marghera-workers-voices", "tzunami", "BLO", "planb", "convertedwav", ])
 .action_({|me|
-	var myPath;
-	switch (me.value,
-		0, { myPath = "/Volumes/ssdData/soundsAndSamples/Industrial-autoprodotti/*"; },
-		1, { myPath = 	"/Volumes/ssdData/soundsAndSamples/tic_gaber/*" },
-		2, { myPath = "/Volumes/ssdData/soundsAndSamples/900-marghera-workers-voices/*" },
-		3, { myPath = "/Volumes/ssdData/soundsAndSamples/tzunami/*" },
-		4, { myPath = "/Volumes/ssdData/soundsAndSamples/berlin/*" },
-		5, { myPath = "/Volumes/ssdData/infiniteorchestra/convertedwav/*" }
-	);
-	~lobo_CurrentSoundFileList.size.do{|me| ~lobo_CurrentSoundFileList.at(me).free };
-	~lobo_CurrentSoundFileList = ();
-	~lobo_CurrentSoundFileList =  SoundFile.collectIntoBuffers(path: myPath.standardizePath);
+	var path, basepath;
+	basepath = "/Volumes/ssdData/soundsAndSamples/";
+	if ( me.item == "planb" , { basepath = "/Volumes/ssdData/infiniteorchestra/"; });
+	if ( me.item == "convertedwav", { basepath = "/Volumes/ssdData/infiniteorchestra/"; });
+	path = basepath++me.item++"/*";
+	("Load audio files from: "+path).postln;
+	~lobo_CurrentSoundFileList = SoundFile.collectIntoBuffers(path.standardizePath);
 	~setListViewContent.value(~lobo_CurrentSoundFileList);
 });
 //// Create and populate the text view for soundfile info

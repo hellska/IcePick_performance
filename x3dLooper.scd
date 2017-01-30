@@ -200,7 +200,7 @@ SynthDef.new(\granulaSample, {
 };
 // end of Synth Def
 ////////////////////////////////////
-// Actions trigger - play,rec,stop,samplePosition
+// Action triggers - play,rec,stop,samplePosition
 ////////////////////////////////////
 
 // Joystik controlled looper functions via OSC protocol
